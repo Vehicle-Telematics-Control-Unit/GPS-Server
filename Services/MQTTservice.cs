@@ -28,7 +28,7 @@ namespace GPS_Server.Services
             options.WithClientId("GPS-Server");
             await _mqttClient.ConnectAsync(options.Build(), stoppingToken);
             _mqttClient.ApplicationMessageReceivedAsync += e => { 
-                return HandleReceivedMessage(e); 
+                return HandleReceivedMessage(e);
             };
 
             await SubscribeToTopics(stoppingToken);
@@ -52,12 +52,13 @@ namespace GPS_Server.Services
             MqttApplicationMessage appMessage = eventArgs.ApplicationMessage;
             var topic = appMessage.Topic;
             string connectionId = topic.Split("/", 2)[1];
+            Console.WriteLine(connectionId);
             // Extract the location data from the MQTT message payload
             JObject location = ParseLocationFromPayload(eventArgs.ApplicationMessage.PayloadSegment);
-            long? lat = location["lat"]?.Value<long>();
+            double? lat = location["lat"]?.Value<double>();
             if (lat == null)
                 return;
-            long? lng = location["long"]?.Value<long>();
+            double? lng = location["lng"]?.Value<double>();
             if (lng == null)
                 return;
             // Broadcast the location update to connected SignalR clients

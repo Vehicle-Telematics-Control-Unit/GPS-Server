@@ -17,6 +17,7 @@ namespace GPS_Server.Models
         }
 
         public virtual DbSet<Alert> Alerts { get; set; } = null!;
+        public virtual DbSet<App> Apps { get; set; } = null!;
         public virtual DbSet<AspNetRole> AspNetRoles { get; set; } = null!;
         public virtual DbSet<AspNetRoleClaim> AspNetRoleClaims { get; set; } = null!;
         public virtual DbSet<AspNetUser> AspNetUsers { get; set; } = null!;
@@ -27,10 +28,14 @@ namespace GPS_Server.Models
         public virtual DbSet<ContactMethod> ContactMethods { get; set; } = null!;
         public virtual DbSet<Device> Devices { get; set; } = null!;
         public virtual DbSet<DevicesTcu> DevicesTcus { get; set; } = null!;
+        public virtual DbSet<Feature> Features { get; set; } = null!;
         public virtual DbSet<LockRequest> LockRequests { get; set; } = null!;
+        public virtual DbSet<Model> Models { get; set; } = null!;
+        public virtual DbSet<ModelsFeature> ModelsFeatures { get; set; } = null!;
         public virtual DbSet<Otptoken> Otptokens { get; set; } = null!;
         public virtual DbSet<RequestStatus> RequestStatuses { get; set; } = null!;
         public virtual DbSet<Tcu> Tcus { get; set; } = null!;
+        public virtual DbSet<Tcufeature> Tcufeatures { get; set; } = null!;
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -56,6 +61,26 @@ namespace GPS_Server.Models
                     .HasConstraintName("Alert_TCU");
             });
 
+            modelBuilder.Entity<App>(entity =>
+            {
+                entity.Property(e => e.AppId).UseIdentityAlwaysColumn();
+
+                entity.Property(e => e.EnvVariables).HasColumnName("ENV_VARIABLES");
+
+                entity.Property(e => e.LatestUpdate).HasColumnType("timestamp without time zone");
+
+                entity.Property(e => e.ReleaseDate).HasColumnType("timestamp without time zone");
+
+                entity.Property(e => e.Repo).HasColumnName("repo");
+
+                entity.Property(e => e.Tag).HasColumnName("tag");
+
+                entity.HasOne(d => d.Feature)
+                    .WithMany(p => p.Apps)
+                    .HasForeignKey(d => d.FeatureId)
+                    .HasConstraintName("Feature_FOREIGN");
+            });
+
             modelBuilder.Entity<AspNetRole>(entity =>
             {
                 entity.Property(e => e.Name).HasMaxLength(256);
@@ -74,6 +99,9 @@ namespace GPS_Server.Models
 
             modelBuilder.Entity<AspNetUser>(entity =>
             {
+                entity.HasIndex(e => e.UserName, "UK_AspNetUsers")
+                    .IsUnique();
+
                 entity.Property(e => e.Email).HasMaxLength(256);
 
                 entity.Property(e => e.NormalizedEmail).HasMaxLength(256);
@@ -219,6 +247,19 @@ namespace GPS_Server.Models
                     .HasConstraintName("TCU_fkey");
             });
 
+            modelBuilder.Entity<Feature>(entity =>
+            {
+                entity.Property(e => e.FeatureId).UseIdentityAlwaysColumn();
+
+                entity.Property(e => e.ReleaseDate).HasColumnType("timestamp without time zone");
+
+                entity.HasOne(d => d.App)
+                    .WithMany(p => p.Features)
+                    .HasForeignKey(d => d.AppId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("Features_Apps");
+            });
+
             modelBuilder.Entity<LockRequest>(entity =>
             {
                 entity.HasKey(e => new { e.TcuId, e.DeviceId, e.CreationTimeStamp })
@@ -244,6 +285,31 @@ namespace GPS_Server.Models
                     .HasForeignKey(d => d.TcuId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
                     .HasConstraintName("LockRequest_TCU");
+            });
+
+            modelBuilder.Entity<Model>(entity =>
+            {
+                entity.ToTable("Model");
+
+                entity.Property(e => e.Id).UseIdentityAlwaysColumn();
+            });
+
+            modelBuilder.Entity<ModelsFeature>(entity =>
+            {
+                entity.HasKey(e => new { e.ModelId, e.FeatureId })
+                    .HasName("PrimaryKey");
+
+                entity.HasOne(d => d.Feature)
+                    .WithMany(p => p.ModelsFeatures)
+                    .HasForeignKey(d => d.FeatureId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("Feature_Foriegn");
+
+                entity.HasOne(d => d.Model)
+                    .WithMany(p => p.ModelsFeatures)
+                    .HasForeignKey(d => d.ModelId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("Model_FOREIGN");
             });
 
             modelBuilder.Entity<Otptoken>(entity =>
@@ -285,11 +351,41 @@ namespace GPS_Server.Models
 
                 entity.Property(e => e.Mac).HasMaxLength(17);
 
+                entity.HasOne(d => d.Model)
+                    .WithMany(p => p.Tcus)
+                    .HasForeignKey(d => d.ModelId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("TCU_Model");
+
                 entity.HasOne(d => d.User)
                     .WithMany(p => p.Tcus)
                     .HasForeignKey(d => d.UserId)
                     .OnDelete(DeleteBehavior.ClientSetNull)
                     .HasConstraintName("TCU_AspNetUsers");
+            });
+
+            modelBuilder.Entity<Tcufeature>(entity =>
+            {
+                entity.HasKey(e => new { e.TcuId, e.FeatureId })
+                    .HasName("TCUFeatures_pkey");
+
+                entity.ToTable("TCUFeatures");
+
+                entity.Property(e => e.IsActive)
+                    .IsRequired()
+                    .HasDefaultValueSql("true");
+
+                entity.HasOne(d => d.Feature)
+                    .WithMany(p => p.Tcufeatures)
+                    .HasForeignKey(d => d.FeatureId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("Feature_FOREIGN");
+
+                entity.HasOne(d => d.Tcu)
+                    .WithMany(p => p.Tcufeatures)
+                    .HasForeignKey(d => d.TcuId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("TCU_FOREIGN");
             });
 
             modelBuilder.HasSequence("otptokens_id_seq");
